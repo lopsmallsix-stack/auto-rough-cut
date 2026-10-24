@@ -1,0 +1,217 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auto Rough Cut V2.0</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #101318;
+      color: #f1f5f9;
+      font-family: system-ui, sans-serif;
+    }
+    main {
+      width: min(1000px, 94%);
+      margin: 28px auto;
+    }
+    h1 { margin-bottom: 6px; }
+    .muted { color: #a5b0c0; font-size: 14px; }
+    .panel {
+      background: #1b2029;
+      border: 1px solid #333b49;
+      border-radius: 12px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    label { display: block; margin: 12px 0 6px; }
+    input, select, button {
+      font: inherit;
+      max-width: 100%;
+    }
+    input[type="file"], select {
+      width: 100%;
+      padding: 10px;
+      border-radius: 7px;
+      border: 1px solid #465164;
+      background: #101722;
+      color: white;
+    }
+    input[type="checkbox"] { margin-right: 8px; }
+    button {
+      padding: 9px 13px;
+      border: 1px solid #526075;
+      border-radius: 7px;
+      background: #273447;
+      color: white;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    button.primary {
+      background: #1769d2;
+      border-color: #3988ee;
+    }
+    button.danger { background: #542b32; }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .clip {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      background: #131923;
+      border: 1px solid #364153;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 8px;
+    }
+    .number {
+      font-size: 18px;
+      font-weight: 700;
+      color: #8ab9ff;
+    }
+    .clip-name { overflow-wrap: anywhere; }
+    .clip-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .status {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      color: #c5d5e9;
+      font-size: 14px;
+    }
+    progress { width: 100%; height: 18px; }
+    video {
+      width: 100%;
+      max-height: 65vh;
+      background: black;
+      margin-top: 12px;
+    }
+    .warning {
+      border-left: 4px solid #e8b24c;
+      padding-left: 12px;
+      color: #e6d3a7;
+    }
+    @media (max-width: 600px) {
+      .clip { grid-template-columns: 28px minmax(0,1fr); }
+      .clip-buttons { grid-column: 2; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Auto Rough Cut V2.0</h1>
+  <p class="muted">
+    จัดลำดับเอง · ตัดช่วงเงียบ · เพิ่มเพลงและ SFX · ตรวจร่างก่อนส่งออก
+  </p>
+
+  <section class="panel">
+    <h2>1. เพิ่มคลิปวิดีโอ</h2>
+    <label for="videoFiles">เลือกไฟล์วิดีโอ</label>
+    <input id="videoFiles" type="file" accept="video/*" multiple>
+    <p class="muted">
+      หลังเพิ่มคลิป ให้จัดลำดับด้วยปุ่มขึ้น/ลง แล้วล็อกลำดับก่อนเริ่มประมวลผล
+    </p>
+    <div id="clipList"></div>
+    <div class="actions">
+      <button id="lockButton">ล็อกลำดับคลิป</button>
+      <button id="unlockButton" disabled>ปลดล็อกเพื่อจัดใหม่</button>
+    </div>
+    <p id="orderStatus" class="status">ยังไม่ได้ล็อกลำดับ</p>
+  </section>
+
+  <section class="panel">
+    <h2>2. ตั้งค่าการตัดต่อ</h2>
+
+    <label for="targetDuration">ความยาวเป้าหมาย</label>
+    <select id="targetDuration">
+      <option value="auto">ใช้ความยาวหลังตัดจริง</option>
+      <option value="600" selected>ประมาณ 10 นาที</option>
+      <option value="480">ประมาณ 8 นาที</option>
+      <option value="300">ประมาณ 5 นาที</option>
+      <option value="180">ประมาณ 3 นาที</option>
+    </select>
+
+    <label for="silenceThreshold">ระดับเสียงที่ใช้ตรวจจับช่วงเงียบ</label>
+    <select id="silenceThreshold">
+      <option value="-40">เข้มงวดน้อย: -40 dB</option>
+      <option value="-35" selected>ปานกลาง: -35 dB</option>
+      <option value="-30">ตัดช่วงเงียบได้มากขึ้น: -30 dB</option>
+    </select>
+
+    <label>
+      <input type="checkbox" id="trimSilence" checked>
+      ตัดช่วงเงียบที่ยาวกว่า 1.2 วินาที
+    </label>
+
+    <p class="muted">
+      การตรวจจับใช้ระดับเสียง ไม่เข้าใจความหมายของคำพูด
+      ควรตรวจร่างก่อนนำไปใช้จริง
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>3. ดนตรีประกอบ</h2>
+    <label for="musicFile">เลือกเพลงจากคลังที่ดาวน์โหลดไว้</label>
+    <input id="musicFile" type="file" accept="audio/*">
+
+    <label for="musicVolume">ระดับเสียงเพลง</label>
+    <select id="musicVolume">
+      <option value="0.10">เบา</option>
+      <option value="0.20" selected>ปานกลาง</option>
+      <option value="0.30">ดังขึ้น</option>
+    </select>
+
+    <label>
+      <input type="checkbox" id="duckMusic" checked>
+      ลดเสียงเพลงอัตโนมัติเมื่อมีเสียงต้นฉบับ
+    </label>
+  </section>
+
+  <section class="panel">
+    <h2>4. Sound Effects</h2>
+    <label for="sfxFiles">เลือกไฟล์ SFX หลายไฟล์ได้</label>
+    <input id="sfxFiles" type="file" accept="audio/*" multiple>
+
+    <label for="sfxVolume">ระดับเสียง SFX</label>
+    <select id="sfxVolume">
+      <option value="0.15">เบา</option>
+      <option value="0.30" selected>ปานกลาง</option>
+      <option value="0.45">ดังขึ้น</option>
+    </select>
+
+    <p class="muted">
+      ต้นแบบนี้จะวาง SFX ทีละไฟล์ตามลำดับที่เลือกไว้
+      เริ่มจากรอยต่อระหว่างคลิป ไม่ได้วิเคราะห์เนื้อหาเพื่อเลือกเสียงเอง
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>5. สร้างวิดีโอร่าง</h2>
+    <p class="warning">
+      คลิปทั้งหมดจะถูกประมวลผลในเบราว์เซอร์ การประมวลผล 4K
+      หรือคลิปจำนวนมากอาจใช้ RAM สูงและใช้เวลานาน
+    </p>
+
+    <div class="actions">
+      <button id="renderButton" class="primary">สร้างวิดีโอร่าง</button>
+      <button id="downloadButton" disabled>ยืนยันและดาวน์โหลด MP4</button>
+    </div>
+
+    <p id="status" class="status">พร้อมทำงาน</p>
+    <progress id="progress" value="0" max="100"></progress>
+    <video id="preview" controls hidden></video>
+  </section>
+</main>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
